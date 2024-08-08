@@ -1,9 +1,8 @@
 // Saves options to chrome.storage
 const saveOptions = () => {
-    const openai_apikey = document.getElementById('openai_apikey').value;
-  
+    const ollama_model = document.getElementById('ollama_model').value;
     chrome.storage.sync.set(
-      { openai_apikey: openai_apikey },
+      { ollama_model: ollama_model },
       () => {
         // Update status to let user know options were saved.
         const status = document.getElementById('status');
@@ -19,9 +18,10 @@ const saveOptions = () => {
   // stored in chrome.storage.
   const restoreOptions = () => {
     chrome.storage.sync.get(
-      { openai_apikey: '' },
+      { ollama_model: "llama3.1:8b" },
       (items) => {
-        document.getElementById('openai_apikey').value = items.openai_apikey;
+        console.log(items)
+        document.getElementById('ollama_model').value = items.ollama_model;
       }
     );
   };

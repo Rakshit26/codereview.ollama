@@ -2,7 +2,6 @@
 
 import './styles.css';
 import { parse } from 'node-html-parser';
-import { ChatGPTAPI } from 'chatgpt';
 
 var parsediff = require('parse-diff');
 
@@ -41,70 +40,59 @@ function inProgress(ongoing, failed = false, rerun = true) {
   }
 }
 
-async function getApiKey() {
+async function getOllamaModel() {
   let options = await new Promise((resolve) => {
-    chrome.storage.sync.get('openai_apikey', resolve);
+    chrome.storage.sync.get('ollama_model', resolve);
   });
   console.log(options);
-  if (!options || !options['openai_apikey']) {
-    throw new Error("UNAUTHORIZED");
+  if (!options || !options['ollama_model']) {
+    return "llama3.1:8b";
   }
-  return options['openai_apikey'];
+  return options['ollama_model'];
 }
 
 async function callChatGPT(messages, callback, onDone) {
-  let apiKey;
+
+  let ollmaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
+
+  for (const message of messages) {
+      // append user message to ollmaMessages
+      ollmaMessages.push({ role: "user", content: message })
+  };
+
+  console.log("ollmaMessages", ollmaMessages)
   try {
-    apiKey = await getApiKey();
+    const model = await getOllamaModel();
+    console.log("ollama model", model)
+    const response = await fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: ollmaMessages,
+        stream: false
+      }),
+    });
+    const data = await response.json();
+
+    console.log("response data", data)
+    const res = data.message.content;
+    callback(res);
+    onDone();
   } catch (e) {
-    callback('Please add your Open AI API key to the settings of this Chrome Extension.');
+    callback(String(e));
     onDone();
     return;
   }
-
-  const api = new ChatGPTAPI({
-    apiKey: apiKey,
-    systemMessage: `You are a programming code change reviewer, provide feedback on the code changes given. Do not introduce yourselves.`
-  })
-
-  let res
-  let iterations = messages.length;
-  for (const message of messages) {
-    iterations--;
-    try {
-      // Last prompt
-      var options = {};
-      // If we have no iterations left, it means its the last of our prompt messages.
-      if (iterations == 0) {
-        options = {
-          onProgress: (partialResponse) => callback(partialResponse.text),
-        }
-      }
-      // In progress
-      else {
-        options = {
-          onProgress: () => callback("Processing your code changes. Number of prompts left to send: " + iterations + ". Stay tuned..."),
-        }
-      }
-
-      if (res) {
-        options.parentMessageId = res.id
-      }
-      res = await api.sendMessage(message, options)
-    } catch (e){
-      callback(String(e));
-      onDone();
-      return;
-    }
-  };
-
-  onDone();
 }
 
 const showdown = require('showdown');
 const converter = new showdown.Converter()
 
 async function reviewPR(diffPath, context, title) {
+  console.log("reviewPR", diffPath, context, title)
   inProgress(true)
   document.getElementById('result').innerHTML = ''
   chrome.storage.session.remove([diffPath])
@@ -112,7 +100,7 @@ async function reviewPR(diffPath, context, title) {
 
   let promptArray = [];
   // Fetch the patch from our provider.
-  let patch = await fetch (diffPath).then((r) => r.text())
+  let patch = await fetch(diffPath).then((r) => r.text())
   let warning = '';
   let patchParts = [];
 
@@ -139,7 +127,7 @@ async function reviewPR(diffPath, context, title) {
   // Remove binary files as those are not useful for ChatGPT to provide a review for.
   // TODO: Implement parse-diff library so that we can remove large lock files or binaries natively.
   const regex = /GIT\sbinary\spatch(.*)literal\s0/mgis;
-  patch = patch.replace(regex,'')
+  patch = patch.replace(regex, '')
 
   // Separate the patch in different pieces to give ChatGPT more context.
   // Additionally, truncate the part of the patch if it is too big for ChatGPT to handle.
@@ -149,10 +137,10 @@ async function reviewPR(diffPath, context, title) {
   // This means we have 16384, and let's reduce 1000 chars from that.
   var files = parsediff(patch);
 
-    // Rebuild our patch as if it were different patches
-    files.forEach(function(file) {
+  // Rebuild our patch as if it were different patches
+  files.forEach(function (file) {
 
-      // Ignore lockfiles
+    // Ignore lockfiles
     if (file.from.includes("lock.json")) {
       return;
     }
@@ -161,7 +149,7 @@ async function reviewPR(diffPath, context, title) {
 
     patchPartArray.push("```diff");
     if ("from" in file && "to" in file) {
-      patchPartArray.push("diff --git a" + file.from + " b"+ file.to);
+      patchPartArray.push("diff --git a" + file.from + " b" + file.to);
     }
     if ("new" in file && file.new === true && "newMode" in file) {
       patchPartArray.push("new file mode " + file.newMode);
@@ -222,7 +210,7 @@ async function run() {
   // Simple verification if it would be a self-hosted GitLab instance.
   // We verify if there is a meta tag present with the content "GitLab". 
   let isGitLabResult = (await chrome.scripting.executeScript({
-    target:{tabId: tab.id, allFrames: true}, 
+    target: { tabId: tab.id, allFrames: true },
     func: () => { return document.querySelectorAll('meta[content="GitLab"]').length }
   }))[0];
 
@@ -239,21 +227,30 @@ async function run() {
     // The description of the author of the change
     // Fetch it by running a querySelector script specific to GitHub on the active tab
     const contextExternalResult = (await chrome.scripting.executeScript({
-      target:{tabId: tab.id, allFrames: true}, 
+      target: { tabId: tab.id, allFrames: true },
       func: () => { return document.querySelector('.markdown-body').textContent }
     }))[0];
-    
+
     if ("result" in contextExternalResult) {
       context = contextExternalResult.result;
     }
   }
   else if (provider === 'GitLab' && tab.url.includes('/-/merge_requests/')) {
+    // strip the part after /-/merge_requests/[number]
+    const pattern = /\/merge_requests\/\d+/;
+
+    // Find the pattern in the URL
+    const match = tab.url.match(pattern);
+
+    // If the pattern is found, strip the part after it
+    const strippedUrl = match ? tab.url.slice(0, match.index + match[0].length) : tab.url;
+
     // The path towards the patch file of this change
-    diffPath = tab.url + '.patch';
+    diffPath = strippedUrl + '.patch';
     // The description of the author of the change
     // Fetch it by running a querySelector script specific to GitLab on the active tab
     const contextExternalResult = (await chrome.scripting.executeScript({
-      target:{tabId: tab.id, allFrames: true}, 
+      target: { tabId: tab.id, allFrames: true },
       func: () => { return document.querySelector('.description textarea').getAttribute('data-value') }
     }))[0];
 
@@ -269,7 +266,7 @@ async function run() {
       error = 'Only GitHub or GitLab (SaaS & self-hosted) are supported.'
     }
   }
- 
+
   if (error != null) {
     document.getElementById('result').innerHTML = error
     inProgress(false, true, false);
