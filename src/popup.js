@@ -53,14 +53,14 @@ async function getOllamaModel() {
 
 async function callChatGPT(messages, callback, onDone) {
 
-  let ollmaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
+  let ollamaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
 
   for (const message of messages) {
-      // append user message to ollmaMessages
-      ollmaMessages.push({ role: "user", content: message })
+    // append user message to ollamaMessages
+    ollamaMessages.push({ role: "user", content: message })
   };
 
-  console.log("ollmaMessages", ollmaMessages)
+  console.log("ollamaMessages", ollamaMessages)
   try {
     const model = await getOllamaModel();
     console.log("ollama model", model)
@@ -71,21 +71,43 @@ async function callChatGPT(messages, callback, onDone) {
       },
       body: JSON.stringify({
         model: model,
-        messages: ollmaMessages,
-        stream: false
+        messages: ollamaMessages,
+        stream: true
       }),
     });
-    const data = await response.json();
 
-    console.log("response data", data)
-    const res = data.message.content;
-    callback(res);
-    onDone();
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let result = ''; // Accumulate the final response here
+    let done = false;
+
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+
+      if (value) {
+        // Decode the chunk of data
+        const chunk = decoder.decode(value, { stream: !done });
+
+        // Parse and process the chunk
+        chunk.split('\n').forEach(line => {
+          if (line.trim()) {
+            try {
+              const json = JSON.parse(line);
+              result = result + json.message.content
+              callback(result);
+            } catch (error) {
+              console.error("Error parsing JSON:", error);
+            }
+          }
+        });
+      }
+    }
+    console.log(result)
   } catch (e) {
     callback(String(e));
-    onDone();
-    return;
   }
+  onDone();
 }
 
 const showdown = require('showdown');
@@ -96,7 +118,6 @@ async function reviewPR(diffPath, context, title) {
   inProgress(true)
   document.getElementById('result').innerHTML = ''
   chrome.storage.session.remove([diffPath])
-
 
   let promptArray = [];
   // Fetch the patch from our provider.
