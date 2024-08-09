@@ -53,14 +53,14 @@ async function getOllamaModel() {
 
 async function callChatGPT(messages, callback, onDone) {
 
-  let ollmaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
+  let ollamaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
 
   for (const message of messages) {
-    // append user message to ollmaMessages
-    ollmaMessages.push({ role: "user", content: message })
+    // append user message to ollamaMessages
+    ollamaMessages.push({ role: "user", content: message })
   };
 
-  console.log("ollmaMessages", ollmaMessages)
+  console.log("ollamaMessages", ollamaMessages)
   try {
     const model = await getOllamaModel();
     console.log("ollama model", model)
@@ -71,7 +71,7 @@ async function callChatGPT(messages, callback, onDone) {
       },
       body: JSON.stringify({
         model: model,
-        messages: ollmaMessages,
+        messages: ollamaMessages,
         stream: true
       }),
     });
