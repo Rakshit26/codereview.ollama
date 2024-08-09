@@ -1,6 +1,6 @@
 {
-  "name": "codereview.gpt",
-  "version": "0.3.0",
+  "name": "codereview.ollama",
+  "version": "0.1.0",
   "description": "Reviews PRs so that you can pretend to work",
   "private": true,
   "scripts": {
