@@ -51,6 +51,17 @@ async function getOllamaModel() {
   return options['ollama_model'];
 }
 
+async function getOllamaServer() {
+  let options = await new Promise((resolve) => {
+    chrome.storage.sync.get('ollama_server', resolve);
+  });
+  console.log(options);
+  if (!options || !options['ollama_server']) {
+    return "http://localhost:11434";
+  }
+  return options['ollama_server'];
+}
+
 async function callChatGPT(messages, callback, onDone) {
 
   let ollamaMessages = [{ role: "system", content: "I am a code change reviewer. I will provide feedback on the code changes given. Do not introduce yourselves. " }]
@@ -63,8 +74,9 @@ async function callChatGPT(messages, callback, onDone) {
   console.log("ollamaMessages", ollamaMessages)
   try {
     const model = await getOllamaModel();
+    const ollamaServer = await getOllamaServer();
     console.log("ollama model", model)
-    const response = await fetch('http://localhost:11434/api/chat', {
+    const response = await fetch(ollamaServer + '/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
