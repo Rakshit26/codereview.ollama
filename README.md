@@ -1,19 +1,15 @@
 # codereview.ollama
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sturdy-dev/codereview.gpt/main/public/icons/icon_128.png">
+  <img src="https://raw.githubusercontent.com/limingchina/codereview.ollama/main/public/icons/icon_128.png">
 </p>
 <p align='center'>
     Review GitHub Pull Requests or GitLab Merge Requests using <a href="https://github.com/ollama/ollama" target="_blank">Ollama</a>.
 </p>
 <p align='center'>
-    <a href="https://github.com/sturdy-dev/codereview.gpt/blob/main/LICENSE.txt">
+    <a href="https://github.com/limingchina/codereview.ollama/blob/main/LICENSE.txt">
         <img alt="GitHub"
-        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt">
-    </a>
-    <a href="https://chrome.google.com/webstore/detail/codereviewgpt/amdfidcajdihmbhmmgohhkoaijpkocdn">
-      <img alt="Chrome Web Store"
-      src="https://img.shields.io/chrome-web-store/v/amdfidcajdihmbhmmgohhkoaijpkocdn">
+        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt/">
     </a>
 </p>
 <p align="center">
@@ -31,7 +27,7 @@ Here's an example output for [this](https://github.com/sturdy-dev/semantic-code-
 
 https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8ccb-4639f9f71458.mp4
 
-![example screenshot](https://raw.githubusercontent.com/sturdy-dev/codereview.gpt/main/docs/codereview_gpt_screenshot_1.png)
+![example screenshot](https://raw.githubusercontent.com/limingchina/codereview.ollama/main/docs/codereview_gpt_screenshot_1.png)
 
 ## Usage
 
