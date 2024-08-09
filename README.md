@@ -84,7 +84,7 @@ You can install `codereview.ollama` build it from source locally.
 
 ### From source
 
-- Clone this repository `git clone foo && cd foo`
+- Clone this repository
 - Install the dependencies `npm install`
 - Run the build script `npm run build`
 - Navigate to `chrome://extensions`
@@ -94,6 +94,11 @@ You can install `codereview.ollama` build it from source locally.
 ## Supported browsers
 
 only Chrome is supported
+
+## TODO list
+
+- Add support to list the models of Ollama in Settings and in the popup window
+- Add support to follow up the conversion in the popup window
 
 ## Permissions
 
