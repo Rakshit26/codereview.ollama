@@ -1,19 +1,15 @@
-# codereview.gpt
+# codereview.ollama
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sturdy-dev/codereview.gpt/main/public/icons/icon_128.png">
+  <img src="https://raw.githubusercontent.com/limingchina/codereview.ollama/main/public/icons/icon_128.png">
 </p>
 <p align='center'>
-    Review GitHub Pull Requests or GitLab Merge Requests using <a href="https://chat.openai.com" target="_blank">ChatGPT</a>.
+    Review GitHub Pull Requests or GitLab Merge Requests using <a href="https://github.com/ollama/ollama" target="_blank">Ollama</a>.
 </p>
 <p align='center'>
-    <a href="https://github.com/sturdy-dev/codereview.gpt/blob/main/LICENSE.txt">
+    <a href="https://github.com/limingchina/codereview.ollama/blob/main/LICENSE.txt">
         <img alt="GitHub"
-        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt">
-    </a>
-    <a href="https://chrome.google.com/webstore/detail/codereviewgpt/amdfidcajdihmbhmmgohhkoaijpkocdn">
-      <img alt="Chrome Web Store"
-      src="https://img.shields.io/chrome-web-store/v/amdfidcajdihmbhmmgohhkoaijpkocdn">
+        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt/">
     </a>
 </p>
 <p align="center">
@@ -25,20 +21,22 @@
 
 ## Overview
 
-This is a Chrome extension which reviews Pull Requests for you using [ChatGPT](https://chat.openai.com/).
+This is a Chrome extension which reviews Pull Requests for you using [Ollama](https://github.com/ollama/ollama).
 
 Here's an example output for [this](https://github.com/sturdy-dev/semantic-code-search/pull/17) Pull Request:
 
 https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8ccb-4639f9f71458.mp4
 
-![example screenshot](https://raw.githubusercontent.com/sturdy-dev/codereview.gpt/main/docs/codereview_gpt_screenshot_1.png)
+![example screenshot](https://raw.githubusercontent.com/limingchina/codereview.ollama/main/docs/codereview_gpt_screenshot_1.png)
 
 ## Usage
 
-- Navigate to a GitHub Pull Request or GitLab Merge Request that you want a review for.
-- Fill in your [OpenAI API token](https://platform.openai.com/account/api-keys) in the Settings of the Chrome Extension
-- Click the extension icon
-- You get code review comments from ChatGPT in the popup window
+- Install [Ollama](https://github.com/ollama/ollama)
+- In order to call the REST API from Ollama, one needs to enable CORS following the instructions [here](https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0)
+- install some models using 'ollama pull'. For example, 'ollama pull llama3.1:8b'.
+- One can pull multiple models and set the model that you want to use in the Settings of this Chrome Extension
+- Go to a Github Pull Request web page or a Gitlab Merge Request web page, and click the extension icon
+- You get code review comments from Ollama in the popup window. The result will be cached based on the Pull(Merge) Request URL. If you go to the same URL later and click the extension icon, it will be fetch the result from the cache. One can also click the "run again" button to re-run the review.
 
 **NB:** Running the review multiple times often produces different feedback, so if you are dealing with a larger PR, it might be a good idea to do that to get the most out of it.
 
@@ -64,10 +62,6 @@ https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8
 
 ###
 
-**Q:** Is this a GPT wrapper?
-
-**A:** Yes, [but](https://twitter.com/creatine_cycle/status/1600331160776998913)
-
 ###
 
 **Q:** Why would you want this?
@@ -82,15 +76,11 @@ https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8
 
 ## Installation
 
-You can install `codereview.gpt` from the [Chrome Web Store](https://chrome.google.com/webstore/detail/codereviewgpt/amdfidcajdihmbhmmgohhkoaijpkocdn) or build it from source locally.
-
-### From the Chrome Web Store (recommended)
-
-Go to the [extension page](https://chrome.google.com) at the Chrome Web Store and add `codereview.gpt`.
+You can install `codereview.ollama` build it from source locally.
 
 ### From source
 
-- Clone this repository `git clone foo && cd foo`
+- Clone this repository
 - Install the dependencies `npm install`
 - Run the build script `npm run build`
 - Navigate to `chrome://extensions`
@@ -100,6 +90,11 @@ Go to the [extension page](https://chrome.google.com) at the Chrome Web Store an
 ## Supported browsers
 
 only Chrome is supported
+
+## TODO list
+
+- Add support to list the models of Ollama in Settings and in the popup window
+- Add support to follow up the conversion in the popup window
 
 ## Permissions
 
@@ -111,8 +106,8 @@ This is a list of permissions the extension uses with the respective reason.
 
 ## Credits
 
-This project is inspired by [clmnin/summarize.site](https://github.com/clmnin/summarize.site)
+This project is forked from [codereview.gpt](https://github.com/sturdy-dev/codereview.gpt)
 
 ## License
 
-codereview.gpt is distributed under the [MIT](LICENSE.txt) license.
+codereview.ollama is distributed under the [MIT](LICENSE.txt) license.
