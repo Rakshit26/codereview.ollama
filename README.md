@@ -9,7 +9,7 @@
 <p align='center'>
     <a href="https://github.com/limingchina/codereview.ollama/blob/main/LICENSE.txt">
         <img alt="GitHub"
-        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt/">
+        src="https://img.shields.io/github/license/sturdy-dev/codereview.gpt">
     </a>
 </p>
 <p align="center">
