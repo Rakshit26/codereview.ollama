@@ -226,12 +226,43 @@ async function reviewPR(diffPath, context, title) {
   )
 }
 
+async function fetchOllamaModels(server) {
+  try {
+    const response = await fetch(`${server}/api/tags`);
+    const data = await response.json();
+    return data.models || [];
+  } catch (error) {
+    console.error('Error fetching Ollama models:', error);
+    return [];
+  }
+}
+
+async function populateModelDropdown() {
+  const modelSelect = document.getElementById('ollama_model');
+  const server = await getOllamaServer();
+  const models = await fetchOllamaModels(server);
+
+  modelSelect.innerHTML = '';
+  models.forEach(model => {
+    const option = document.createElement('option');
+    option.value = model.name;
+    option.textContent = model.name;
+    modelSelect.appendChild(option);
+  });
+
+  // Set the current model
+  const currentModel = await getOllamaModel();
+  modelSelect.value = currentModel;
+}
+
 async function run() {
 
   // Get current tab
   let tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   let prUrl = document.getElementById('pr-url')
   prUrl.textContent = tab.url
+
+  await populateModelDropdown();
 
   let diffPath
   let provider = ''
@@ -310,7 +341,9 @@ async function run() {
 
   inProgress(true)
 
-  document.getElementById("rerun-btn").onclick = () => {
+  document.getElementById("rerun-btn").onclick = async () => {
+    const newModel = document.getElementById('ollama_model').value;
+    await chrome.storage.sync.set({ ollama_model: newModel });
     reviewPR(diffPath, context, title)
   }
 
