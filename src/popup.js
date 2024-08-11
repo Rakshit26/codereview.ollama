@@ -46,7 +46,7 @@ async function getOllamaModel() {
   });
   console.log(options);
   if (!options || !options['ollama_model']) {
-    return "llama3.1:8b";
+    return "";
   }
   return options['ollama_model'];
 }
@@ -60,6 +60,15 @@ async function getOllamaServer() {
     return "http://localhost:11434";
   }
   return options['ollama_server'];
+}
+
+function getStorageKey(diffPath, model) {
+  return `${diffPath}|${model}`;
+}
+
+function saveResult(diffPath, model, result) {
+  const key = getStorageKey(diffPath, model);
+  chrome.storage.session.set({ [key]: result });
 }
 
 async function callChatGPT(messages, callback, onDone) {
@@ -129,7 +138,9 @@ async function reviewPR(diffPath, context, title) {
   console.log("reviewPR", diffPath, context, title)
   inProgress(true)
   document.getElementById('result').innerHTML = ''
-  chrome.storage.session.remove([diffPath])
+
+  const currentModel = await getOllamaModel();
+  saveResult(diffPath, currentModel, null)
 
   let promptArray = [];
   // Fetch the patch from our provider.
@@ -220,7 +231,8 @@ async function reviewPR(diffPath, context, title) {
       document.getElementById('result').innerHTML = converter.makeHtml(answer + " \n\n" + warning)
     },
     () => {
-      chrome.storage.session.set({ [diffPath]: document.getElementById('result').innerHTML })
+      const result = document.getElementById('result').innerHTML;
+      saveResult(diffPath, currentModel, result);
       inProgress(false)
     }
   )
@@ -250,9 +262,17 @@ async function populateModelDropdown() {
     modelSelect.appendChild(option);
   });
 
-  // Set the current model
-  const currentModel = await getOllamaModel();
-  modelSelect.value = currentModel;
+  if(models.length > 0) {
+    // Set the current model
+    const currentModel = await getOllamaModel();
+    if ( currentModel === "") {
+      modelSelect.value = models[0].name;
+    }
+    modelSelect.value = currentModel;
+  }
+  else{
+    throw "Ollama model not found"
+  }
 }
 
 async function run() {
@@ -347,9 +367,11 @@ async function run() {
     reviewPR(diffPath, context, title)
   }
 
-  chrome.storage.session.get([diffPath]).then((result) => {
-    if (result[diffPath]) {
-      document.getElementById('result').innerHTML = result[diffPath]
+  const currentModel = await getOllamaModel();
+  const storageKey = getStorageKey(diffPath, currentModel);
+  chrome.storage.session.get([storageKey]).then((result) => {
+    if (result[storageKey]) {
+      document.getElementById('result').innerHTML = result[storageKey]
       inProgress(false)
     } else {
       reviewPR(diffPath, context, title)
