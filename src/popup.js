@@ -26,7 +26,6 @@ function inProgress(ongoing, failed = false, rerun = true) {
   if (ongoing) {
     document.getElementById('status-icon').innerHTML = spinner
     document.getElementById('rerun-btn').classList.add("invisible");
-    document.getElementById('codeball-link').classList.add("invisible");
   } else {
     if (failed) {
       document.getElementById('status-icon').innerHTML = xcircle
@@ -35,7 +34,6 @@ function inProgress(ongoing, failed = false, rerun = true) {
     }
     if (rerun) {
       document.getElementById('rerun-btn').classList.remove("invisible");
-      document.getElementById('codeball-link').classList.remove("invisible");
     }
   }
 }
