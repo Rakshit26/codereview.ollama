@@ -1,7 +1,7 @@
 {
   "name": "codereview.ollama",
   "version": "0.1.0",
-  "description": "Reviews PRs so that you can pretend to work",
+  "description": "Reviews pull requests from github or merge requests from gitlab using Ollama.",
   "private": true,
   "scripts": {
     "watch": "webpack --mode=development --watch --config config/webpack.config.js",
