@@ -26,7 +26,6 @@ function inProgress(ongoing, failed = false, rerun = true) {
   if (ongoing) {
     document.getElementById('status-icon').innerHTML = spinner
     document.getElementById('rerun-btn').classList.add("invisible");
-    document.getElementById('codeball-link').classList.add("invisible");
   } else {
     if (failed) {
       document.getElementById('status-icon').innerHTML = xcircle
@@ -35,7 +34,6 @@ function inProgress(ongoing, failed = false, rerun = true) {
     }
     if (rerun) {
       document.getElementById('rerun-btn').classList.remove("invisible");
-      document.getElementById('codeball-link').classList.remove("invisible");
     }
   }
 }
@@ -46,7 +44,7 @@ async function getOllamaModel() {
   });
   console.log(options);
   if (!options || !options['ollama_model']) {
-    return "llama3.1:8b";
+    return "";
   }
   return options['ollama_model'];
 }
@@ -60,6 +58,15 @@ async function getOllamaServer() {
     return "http://localhost:11434";
   }
   return options['ollama_server'];
+}
+
+function getStorageKey(diffPath, model) {
+  return `${diffPath}|${model}`;
+}
+
+function saveResult(diffPath, model, result) {
+  const key = getStorageKey(diffPath, model);
+  chrome.storage.session.set({ [key]: result });
 }
 
 async function callChatGPT(messages, callback, onDone) {
@@ -129,7 +136,9 @@ async function reviewPR(diffPath, context, title) {
   console.log("reviewPR", diffPath, context, title)
   inProgress(true)
   document.getElementById('result').innerHTML = ''
-  chrome.storage.session.remove([diffPath])
+
+  const selectedModel = document.getElementById('ollama_model').value;
+  saveResult(diffPath, selectedModel, null)
 
   let promptArray = [];
   // Fetch the patch from our provider.
@@ -220,10 +229,64 @@ async function reviewPR(diffPath, context, title) {
       document.getElementById('result').innerHTML = converter.makeHtml(answer + " \n\n" + warning)
     },
     () => {
-      chrome.storage.session.set({ [diffPath]: document.getElementById('result').innerHTML })
+      const result = document.getElementById('result').innerHTML;
+      saveResult(diffPath, selectedModel, result);
       inProgress(false)
     }
   )
+}
+
+async function fetchOllamaModels(server) {
+  try {
+    const response = await fetch(`${server}/api/tags`);
+    const data = await response.json();
+    return data.models || [];
+  } catch (error) {
+    document.getElementById('result').innerHTML = 'Error fetching Ollama models:' + error;
+    return [];
+  }
+}
+
+async function populateModelDropdown() {
+  const modelSelect = document.getElementById('ollama_model');
+  const server = await getOllamaServer();
+  const models = await fetchOllamaModels(server);
+
+  modelSelect.innerHTML = '';
+  models.forEach(model => {
+    const option = document.createElement('option');
+    option.value = model.name;
+    option.textContent = model.name;
+    modelSelect.appendChild(option);
+  });
+
+  if(models.length > 0) {
+    // Set the current model using the stored value
+    const currentModel = await getOllamaModel();
+    if (currentModel === "") {
+      modelSelect.value = models[0].name;
+    }
+    modelSelect.value = currentModel;
+    return true;
+  }
+  else{
+    document.getElementById('result').innerHTML = "Ollama model not found";
+    return false
+  }
+}
+
+function getCodeReviewFromCacheOrLLM(diffPath, context, title)
+{
+  const selectedModel = document.getElementById('ollama_model').value;
+  const storageKey = getStorageKey(diffPath, selectedModel);
+  chrome.storage.session.get([storageKey]).then(async (result) => {
+    if (result[storageKey]) {
+      document.getElementById('result').innerHTML = result[storageKey]
+      inProgress(false)
+    } else {
+      reviewPR(diffPath, context, title)
+    }
+  });
 }
 
 async function run() {
@@ -232,6 +295,12 @@ async function run() {
   let tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   let prUrl = document.getElementById('pr-url')
   prUrl.textContent = tab.url
+
+  const success = await populateModelDropdown();
+
+  if (!success) {
+    return
+  }
 
   let diffPath
   let provider = ''
@@ -310,18 +379,20 @@ async function run() {
 
   inProgress(true)
 
+  // Handle rerun button. Ingore caching and just run the LLM query again
   document.getElementById("rerun-btn").onclick = () => {
     reviewPR(diffPath, context, title)
   }
 
-  chrome.storage.session.get([diffPath]).then((result) => {
-    if (result[diffPath]) {
-      document.getElementById('result').innerHTML = result[diffPath]
-      inProgress(false)
-    } else {
-      reviewPR(diffPath, context, title)
-    }
-  })
+  // Hanlde model switches
+  document.getElementById('ollama_model').addEventListener('change', (event) => {
+    getCodeReviewFromCacheOrLLM(diffPath, context, title);
+    // Update the cached model so that it's used for the future run of the extension
+    chrome.storage.sync.set({ ollama_model: event.target.value });
+  });
+
+  getCodeReviewFromCacheOrLLM(diffPath, context, title);
+
 }
 
 run();
