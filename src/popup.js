@@ -80,7 +80,7 @@ async function callChatGPT(messages, callback, onDone) {
 
   console.log("ollamaMessages", ollamaMessages)
   try {
-    const model = await getOllamaModel();
+    const model = document.getElementById('ollama_model').value;
     const ollamaServer = await getOllamaServer();
     console.log("ollama model", model)
     const response = await fetch(ollamaServer + '/api/chat', {
@@ -263,10 +263,8 @@ async function populateModelDropdown() {
   if(models.length > 0) {
     // Set the current model using the stored value
     const currentModel = await getOllamaModel();
-    if (currentModel === "") {
-      modelSelect.value = models[0].name;
-    }
-    modelSelect.value = currentModel;
+    console.log("currentModel: ", currentModel)
+    modelSelect.value = currentModel ? currentModel : models[0].name;
     return true;
   }
   else{
