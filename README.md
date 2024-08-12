@@ -32,11 +32,11 @@ https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8
 ## Usage
 
 - Install [Ollama](https://github.com/ollama/ollama)
-- In order to call the REST API from Ollama, one needs to enable CORS following the instructions [here](https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0)
-- install some models using 'ollama pull'. For example, 'ollama pull llama3.1:8b'.
-- One can pull multiple models and set the model that you want to use in the Settings of this Chrome Extension
-- Go to a Github Pull Request web page or a Gitlab Merge Request web page, and click the extension icon
-- You get code review comments from Ollama in the popup window. The result will be cached based on the Pull(Merge) Request URL. If you go to the same URL later and click the extension icon, it will be fetch the result from the cache. One can also click the "run again" button to re-run the review.
+- In order to call the REST API from Ollama running locally, one needs to enable CORS following the instructions [here](https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0) to set the environment variable `OLLAMA_ORIGIN`.
+- If one wants to use the Ollama server in a remote location, one needs to configure the Ollama server with the environment variable `OLLAMA_HOST=0.0.0.0` on the remote machine. Refer to (https://chatboxai.app/help-center/connect-chatbox-remote-ollama-service-guide)
+- Install some models using 'ollama pull'. For example, 'ollama pull llama3.1:8b'. One can pull multiple models.
+- Go to a Github Pull Request web page or a Gitlab Merge Request web page, and click the extension icon. In the first run, the first listed model will be used for performing the code review. One can change to use another model by choosing from the dropdown list.
+- The review comment from Ollama are shown in the popup window. The result will be cached based on the Pull(Merge) Request URL and the selected model. If you go to the same URL later and use the same model, the result will be fetched from the cache. One can also click the "run again" button to re-run the review. The new review result will replace the cached result.
 
 **NB:** Running the review multiple times often produces different feedback, so if you are dealing with a larger PR, it might be a good idea to do that to get the most out of it.
 
@@ -93,7 +93,6 @@ only Chrome is supported
 
 ## TODO list
 
-- Add support to list the models of Ollama in Settings and in the popup window
 - Add support to follow up the conversion in the popup window
 
 ## Permissions
