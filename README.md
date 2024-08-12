@@ -23,11 +23,9 @@
 
 This is a Chrome extension which reviews Pull Requests for you using [Ollama](https://github.com/ollama/ollama).
 
-Here's an example output for [this](https://github.com/sturdy-dev/semantic-code-search/pull/17) Pull Request:
+Here's an example output for [this](https://github.com/limingchina/codereview.ollama/pull/4) Pull Request:
 
-https://user-images.githubusercontent.com/4030927/207372123-46d7ee8c-bd3e-4272-8ccb-4639f9f71458.mp4
-
-![example screenshot](https://raw.githubusercontent.com/limingchina/codereview.ollama/main/docs/codereview_gpt_screenshot_1.png)
+![example screenshot](https://raw.githubusercontent.com/limingchina/codereview.ollama/main/docs/codereview_ollama_screenshot_1.png)
 
 ## Usage
 
