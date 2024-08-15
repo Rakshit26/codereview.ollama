@@ -145,6 +145,10 @@ async function reviewPR(diffPath, context, title) {
   const selectedModel = document.getElementById('ollama_model').value;
   saveResult(diffPath, selectedModel, null);
 
+  const maxProcessingLength = await getMaxProcessingLength(
+    await getOllamaServer(),
+    selectedModel
+  );
   let promptArray = [];
   // Fetch the patch from our provider.
   let patch = await fetch(diffPath).then((r) => r.text());
@@ -155,6 +159,7 @@ async function reviewPR(diffPath, context, title) {
 
     Your task is:
     - Review the code changes and provide feedback.
+    - If you have a better version of the title and description of the merge request, please suggest in a dedicated section.
     - If there are any bugs, highlight them.
     - Provide details on missed use of best-practices.
     - Does the code do what it says in the commit messages?
@@ -162,11 +167,10 @@ async function reviewPR(diffPath, context, title) {
     - Use bullet points if you have multiple comments.
     - Provide security recommendations if there are any.
 
-    You are provided with the code changes (diffs) in a unidiff format.
-    Do not provide feedback yet. I will follow-up with a description of the change in a new message.`);
+    You are provided with the code changes (diffs) in a unidiff format.`);
 
   promptArray.push(`A description was given to help you assist in understand why these changes were made.
-    The description was provided in a markdown format. Do not provide feedback yet. I will follow-up with the code changes in diff format in a new message.
+    The description was provided in a markdown format.
 
     ${context}`);
 
@@ -175,12 +179,6 @@ async function reviewPR(diffPath, context, title) {
   const regex = /GIT\sbinary\spatch(.*)literal\s0/gims;
   patch = patch.replace(regex, '');
 
-  // Separate the patch in different pieces to give ChatGPT more context.
-  // Additionally, truncate the part of the patch if it is too big for ChatGPT to handle.
-  // https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
-  // ChatGPT 3.5 has a maximum token size of 4096 tokens https://platform.openai.com/docs/models/gpt-3-5
-  // We will use the guidance of 1 token ~= 4 chars in English, minus 1000 chars to be sure.
-  // This means we have 16384, and let's reduce 1000 chars from that.
   var files = parsediff(patch);
 
   // Rebuild our patch as if it were different patches
@@ -211,15 +209,14 @@ async function reviewPR(diffPath, context, title) {
       );
     }
     patchPartArray.push('```');
-    patchPartArray.push(
-      '\nDo not provide feedback yet. I will confirm once all code changes were submitted.'
-    );
 
     var patchPart = patchPartArray.join('\n');
-    if (patchPart.length >= 15384) {
-      patchPart = patchPart.slice(0, 15384);
+    if (patchPart.length >= maxProcessingLength) {
+      patchPart = patchPart.slice(0, maxProcessingLength);
       warning =
-        'Some parts of your patch were truncated as it was larger than 4096 tokens or 15384 characters. The review might not be as complete.';
+        'Some parts of your patch were truncated as it was larger than ' +
+        maxProcessingLength +
+        ' characters. The review might not be as complete.';
     }
     patchParts.push(patchPart);
   });
@@ -258,6 +255,40 @@ async function fetchOllamaModels(server) {
       'Error fetching Ollama models:' + error;
     return [];
   }
+}
+
+async function getMaxProcessingLength(server, model) {
+  try {
+    const response = await fetch(`${server}/api/show`, {
+      method: 'POST',
+      body: JSON.stringify({
+        model: model,
+      }),
+    });
+    const jsonResponse = await response.json();
+    console.log('context length query response: ', jsonResponse);
+    const modelInfo = jsonResponse['model_info'];
+    // Search if there is a field containing context_length as a substring
+    for (const key in modelInfo) {
+      if (key.endsWith('.context_length')) {
+        // We will use the guidance of 1 token ~= 4 chars in English, minus 1000 chars to be sure.
+        const maxProcessingLength = modelInfo[key] * 4 - 1000;
+        console.log(
+          'model token size',
+          key,
+          ': ',
+          modelInfo[key],
+          ', maxProcessingLength: ',
+          maxProcessingLength
+        );
+        return maxProcessingLength;
+      }
+    }
+  } catch (error) {
+    document.getElementById('result').innerHTML =
+      'Error fetching context length:' + error;
+  }
+  return 4096 * 4 - 1000; // Assuming default 4096 tokens
 }
 
 async function populateModelDropdown() {
