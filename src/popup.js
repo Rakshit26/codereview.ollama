@@ -367,7 +367,7 @@ async function run() {
 
   if (provider === 'GitHub' && tokens[5] === 'pull') {
     // The path towards the patch file of this change
-    diffPath = `https://patch-diff.githubusercontent.com/raw/${tokens[3]}/${tokens[4]}/pull/${tokens[6]}.patch`;
+    diffPath = `https://patch-diff.githubusercontent.com/raw/${tokens[3]}/${tokens[4]}/pull/${tokens[6]}.diff`;
     // The description of the author of the change
     // Fetch it by running a querySelector script specific to GitHub on the active tab
     const contextExternalResult = (
@@ -395,7 +395,7 @@ async function run() {
       : tab.url;
 
     // The path towards the patch file of this change
-    diffPath = strippedUrl + '.patch';
+    diffPath = strippedUrl + '.diff';
     // The description of the author of the change
     // Fetch it by running a querySelector script specific to GitLab on the active tab
     const contextExternalResult = (
