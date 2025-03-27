@@ -84,6 +84,17 @@ async function callChatGPT(messages, callback, onDone) {
   }
 
   console.log('ollamaMessages', ollamaMessages);
+
+  // Provide an alternative starting prompt
+  var messageForCopy = `Based on the following information, please provide an improved title and description for the code change,'
+    + 'and perform a thorough code review of the code changes.`;
+  messages.forEach((message) => {
+    if (messages.indexOf(message) !== 0) {
+      messageForCopy += `\n${message}`;
+    }
+  });
+  console.log(messageForCopy);
+
   try {
     const model = document.getElementById('ollama_model').value;
     const ollamaServer = await getOllamaServer();
@@ -155,8 +166,7 @@ async function reviewPR(diffPath, context, title) {
   let warning = '';
   let patchParts = [];
 
-  promptArray.push(`The change has the following title: ${title}.
-
+  promptArray.push(`
     Your task is:
     - Review the code changes and provide feedback.
     - If you have a better version of the title and description of the merge request, please suggest in a dedicated section.
@@ -165,14 +175,15 @@ async function reviewPR(diffPath, context, title) {
     - Does the code do what it says in the commit messages?
     - Do not highlight minor issues and nitpicks.
     - Use bullet points if you have multiple comments.
-    - Provide security recommendations if there are any.
 
     You are provided with the code changes (diffs) in a unidiff format.`);
-
-  promptArray.push(`A description was given to help you assist in understand why these changes were made.
-    The description was provided in a markdown format.
-
-    ${context}`);
+  promptArray.push(`The change has the following title: ${title}`);
+  if(context) {
+    promptArray.push(`A description was given to help you assist in understand why these changes were made.
+      The description was provided in a markdown format.
+      ${context}`);
+  }
+  promptArray.push(`  You are provided with the code changes (diffs) in a unidiff format.`);
 
   // Remove binary files as those are not useful for ChatGPT to provide a review for.
   // TODO: Implement parse-diff library so that we can remove large lock files or binaries natively.
@@ -224,10 +235,6 @@ async function reviewPR(diffPath, context, title) {
   patchParts.forEach((part) => {
     promptArray.push(part);
   });
-
-  promptArray.push(
-    'All code changes have been provided. Please provide me with your code review based on all the changes, context & title provided'
-  );
 
   // Send our prompts to ChatGPT.
   callChatGPT(
