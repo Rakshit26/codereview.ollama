@@ -3,10 +3,12 @@ import { DEFAULT_GUIDELINES } from './config';
 // Saves options to chrome.storage
 const saveOptions = () => {
   const ollama_server = document.getElementById('ollama_server').value;
+  const lmstudio_server = document.getElementById('lmstudio_server').value;
 
   chrome.storage.sync.set(
     {
       ollama_server: ollama_server,
+      lmstudio_server: lmstudio_server,
     },
     () => {
       // Update status to let user know options were saved.
@@ -25,10 +27,12 @@ const restoreOptions = () => {
   chrome.storage.sync.get(
     {
       ollama_server: 'http://localhost:11434',
+      lmstudio_server: 'http://localhost:1234',
     },
     (items) => {
       console.log(items);
       document.getElementById('ollama_server').value = items.ollama_server;
+      document.getElementById('lmstudio_server').value = items.lmstudio_server;
     }
   );
 };

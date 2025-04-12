@@ -72,13 +72,21 @@
         <input name="ollama_server" id="ollama_server" />
       </div>
       <div class="container">
+        <label for="lmstudio_server">LM Studio server address:</label>
+        <input name="lmstudio_server" id="lmstudio_server" />
+      </div>
+      <div class="container">
         <button id="save">Save Server Settings</button>
         <div id="status" style="margin-left: 16px">Options saved.</div>
       </div>
     </div>
 
     <div class="section">
-      <h2>Code Review Guidelines</h2>
+      <h2 style="display: inline-flex; align-items: center;">Code Review Guidelines 
+        <span title="As part of the prompt, the guideline will be inserted before the code diff to steer the generate result"
+          style="cursor: help; margin-left: 5px; font-size: 0.8em; color: #666;">ⓘ
+        </span>
+      </h2>
       <div class="container">
         <label for="guidelines-list">Select Guideline:</label>
         <select id="guidelines-list"></select>

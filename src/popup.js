@@ -39,7 +39,7 @@ function updateUIStatus(ongoing, failed = false, rerun = true) {
     if (rerun) {
       document.getElementById('rerun-btn').classList.remove('invisible');
     }
-    else if( document.getElementById("ollama_model").value == NO_MODEL_SELECTION) {
+    else if( document.getElementById("model_name").value == NO_MODEL_SELECTION) {
       document.getElementById('rerun-btn').classList.add('invisible');
     }
   }
@@ -47,13 +47,24 @@ function updateUIStatus(ongoing, failed = false, rerun = true) {
 
 async function getOllamaModel() {
   let options = await new Promise((resolve) => {
-    chrome.storage.sync.get('ollama_model', resolve);
+    chrome.storage.sync.get('model_name', resolve);
   });
   console.log(options);
-  if (!options || !options['ollama_model']) {
+  if (!options || !options['model_name']) {
     return NO_MODEL_SELECTION;
   }
-  return options['ollama_model'];
+  return options['model_name'];
+}
+
+async function getSelectedModel() {
+  let options = await new Promise((resolve) => {
+    chrome.storage.sync.get('selected_model', resolve);
+  });
+  console.log('Selected model options:', options);
+  if (!options || !options['selected_model']) {
+    return NO_MODEL_SELECTION;
+  }
+  return options['selected_model'];
 }
 
 async function getOllamaServer() {
@@ -67,6 +78,17 @@ async function getOllamaServer() {
   return options['ollama_server'];
 }
 
+async function getLMStudioServer() {
+  let options = await new Promise((resolve) => {
+    chrome.storage.sync.get('lmstudio_server', resolve);
+  });
+  console.log(options);
+  if (!options || !options['lmstudio_server']) {
+    return 'http://localhost:1234';
+  }
+  return options['lmstudio_server'];
+}
+
 function getStorageKey(diffPath, model) {
   return `${diffPath}|${model}`;
 }
@@ -76,8 +98,8 @@ function saveResult(diffPath, model, result) {
   chrome.storage.session.set({ [key]: result });
 }
 
-async function callChatGPT(messages, callback, onDone) {
-  let ollamaMessages = [
+async function callLLM(messages, callback, onDone) {
+  let chatMessages = [
     {
       role: 'system',
       content:
@@ -86,31 +108,56 @@ async function callChatGPT(messages, callback, onDone) {
   ];
 
   for (const message of messages) {
-    // append user message to ollamaMessages
-    ollamaMessages.push({ role: 'user', content: message });
+    // append user message to chatMessages
+    chatMessages.push({ role: 'user', content: message });
   }
 
-  console.log('ollamaMessages', ollamaMessages);
+  console.log('chatMessages', chatMessages);
   messages.forEach((message) => {
       messageForCopy += `\n${message}`;
   });
   console.log('messageForCopy', messageForCopy);
   
   try {
-    const model = document.getElementById('ollama_model').value;
-    const ollamaServer = await getOllamaServer();
-    console.log('ollama model', model);
-    const response = await fetch(ollamaServer + '/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: ollamaMessages,
-        stream: true,
-      }),
-    });
+    const modelValue = document.getElementById('model_name').value;
+    let modelType, modelName, server, response;
+
+    // Parse the model value to determine which service to use
+    if (modelValue.startsWith('ollama:')) {
+      modelType = 'ollama';
+      modelName = modelValue.substring(7); // Remove 'ollama:' prefix
+      server = await getOllamaServer();
+      console.log('Using Ollama model:', modelName);
+      response = await fetch(`${server}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: chatMessages,
+          stream: true,
+        }),
+      });
+    } else if (modelValue.startsWith('lmstudio:')) {
+      modelType = 'lmstudio';
+      modelName = modelValue.substring(9); // Remove 'lmstudio:' prefix
+      server = await getLMStudioServer();
+      console.log('Using LM Studio model:', modelName);
+      response = await fetch(`${server}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: chatMessages,
+          stream: true,
+        }),
+      });
+    } else {
+      throw new Error('Unknown model type: ' + modelValue);
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
@@ -125,13 +172,36 @@ async function callChatGPT(messages, callback, onDone) {
         // Decode the chunk of data
         const chunk = decoder.decode(value, { stream: !done });
 
-        // Parse and process the chunk
+        // Parse and process the chunk based on model type
         chunk.split('\n').forEach((line) => {
           if (line.trim()) {
             try {
-              const json = JSON.parse(line);
-              result = result + json.message.content;
-              callback(result);
+              // Find the first JSON object in the line by looking for the opening brace
+              let jsonStr = line;
+              if (modelType === 'lmstudio') {
+                // LM studio returns "data: " + JSON object. So we need to find the
+                // first '{' in the line to locate the start of the JSON object
+                const jsonStartIndex = line.indexOf('{');
+                if (jsonStartIndex > 0) {
+                  jsonStr = line.substring(jsonStartIndex);
+                }
+              }
+              const json = JSON.parse(jsonStr);
+
+              // Handle different response formats
+              if (modelType === 'ollama') {
+                // Ollama format
+                if (json.message && json.message.content) {
+                  result = result + json.message.content;
+                  callback(result);
+                }
+              } else if (modelType === 'lmstudio') {
+                // LM Studio follows OpenAI format
+                if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
+                  result = result + json.choices[0].delta.content;
+                  callback(result);
+                }
+              }
             } catch (error) {
               console.error('Error parsing JSON:', error);
             }
@@ -164,11 +234,22 @@ async function reviewPR(diffPath, context, title) {
   updateUIStatus(true);
   document.getElementById('result').innerHTML = '';
 
-  const selectedModel = document.getElementById('ollama_model').value;
+  const selectedModel = document.getElementById('model_name').value;
   saveResult(diffPath, selectedModel, null);
 
+  // Determine which server to use based on model type
+  let server;
+  if (selectedModel.startsWith('ollama:')) {
+    server = await getOllamaServer();
+  } else if (selectedModel.startsWith('lmstudio:')) {
+    server = await getLMStudioServer();
+  } else {
+    console.error('Unknown model type:', selectedModel);
+    return;
+  }
+
   const maxProcessingLength = await getMaxProcessingLength(
-    await getOllamaServer(),
+    server,
     selectedModel
   );
   let promptArray = [];
@@ -242,7 +323,7 @@ async function reviewPR(diffPath, context, title) {
   });
 
   // Send our prompts to ChatGPT.
-  callChatGPT(
+  callLLM(
     promptArray,
     (answer) => {
       document.getElementById('result').innerHTML = converter.makeHtml(
@@ -269,31 +350,80 @@ async function fetchOllamaModels(server) {
   }
 }
 
-async function getMaxProcessingLength(server, model) {
+async function fetchLMStudioModels(server) {
   try {
-    const response = await fetch(`${server}/api/show`, {
-      method: 'POST',
-      body: JSON.stringify({
-        model: model,
-      }),
-    });
-    const jsonResponse = await response.json();
-    console.log('context length query response: ', jsonResponse);
-    const modelInfo = jsonResponse['model_info'];
-    // Search if there is a field containing context_length as a substring
-    for (const key in modelInfo) {
-      if (key.endsWith('.context_length')) {
-        // We will use the guidance of 1 token ~= 4 chars in English, minus 1000 chars to be sure.
-        const maxProcessingLength = modelInfo[key] * 4 - 1000;
-        console.log(
-          'model token size',
-          key,
-          ': ',
-          modelInfo[key],
-          ', maxProcessingLength: ',
-          maxProcessingLength
-        );
-        return maxProcessingLength;
+    const response = await fetch(`${server}/v1/models`);
+    const data = await response.json();
+    // Transform LM Studio model format to match Ollama format
+    return data.data.map(model => ({
+      name: model.id,
+      // Add any other properties needed to match Ollama model format
+    })) || [];
+  } catch (error) {
+    document.getElementById('result').innerHTML =
+      'Error fetching LM Studio models:' + error;
+    return [];
+  }
+}
+
+async function getMaxProcessingLength(server, modelValue) {
+  try {
+    // Parse the model value to determine which service to use
+    let modelType, modelName;
+
+    if (modelValue.startsWith('ollama:')) {
+      modelType = 'ollama';
+      modelName = modelValue.substring(7); // Remove 'ollama:' prefix
+
+      const response = await fetch(`${server}/api/show`, {
+        method: 'POST',
+        body: JSON.stringify({
+          model: modelName,
+        }),
+      });
+      const jsonResponse = await response.json();
+      console.log('context length query response: ', jsonResponse);
+      const modelInfo = jsonResponse['model_info'];
+      // Search if there is a field containing context_length as a substring
+      for (const key in modelInfo) {
+        if (key.endsWith('.context_length')) {
+          // We will use the guidance of 1 token ~= 4 chars in English, minus 1000 chars to be sure.
+          const maxProcessingLength = modelInfo[key] * 4 - 1000;
+          console.log(
+            'model token size',
+            key,
+            ': ',
+            modelInfo[key],
+            ', maxProcessingLength: ',
+            maxProcessingLength
+          );
+          return maxProcessingLength;
+        }
+      }
+    } else if (modelValue.startsWith('lmstudio:')) {
+      modelType = 'lmstudio';
+      modelName = modelValue.substring(9); // Remove 'lmstudio:' prefix
+
+      try {
+        // Query the LM Studio API for model information
+        const response = await fetch(`${server}/api/v0/models/${modelName}`);
+        const jsonResponse = await response.json();
+        console.log('LM Studio context length query response: ', jsonResponse);
+
+        if (jsonResponse.max_context_length) {
+          // We will use the guidance of 1 token ~= 4 chars in English, minus 1000 chars to be sure.
+          const maxProcessingLength = jsonResponse.max_context_length * 4 - 1000;
+          console.log(
+            'LM Studio model context length: ',
+            jsonResponse.max_context_length,
+            ', maxProcessingLength: ',
+            maxProcessingLength
+          );
+          return maxProcessingLength;
+        }
+      } catch (innerError) {
+        console.error('Error fetching LM Studio model info:', innerError);
+        // Fall back to default value if API call fails
       }
     }
   } catch (error) {
@@ -304,10 +434,9 @@ async function getMaxProcessingLength(server, model) {
 }
 
 async function populateModelDropdown() {
-  const modelSelect = document.getElementById('ollama_model');
-  const server = await getOllamaServer();
-  const models = await fetchOllamaModels(server);
+  const modelSelect = document.getElementById('model_name');
 
+  // Clear the dropdown
   modelSelect.innerHTML = '';
 
   // Add special "No model selection" option
@@ -316,26 +445,58 @@ async function populateModelDropdown() {
   noModelOption.textContent = NO_MODEL_SELECTION;
   modelSelect.appendChild(noModelOption);
 
-  // Add the rest of the models
-  models.forEach((model) => {
+  // Fetch models from Ollama
+  const ollamaServer = await getOllamaServer();
+  const ollamaModels = await fetchOllamaModels(ollamaServer);
+  
+  // Add Ollama models with prefix
+  ollamaModels.forEach((model) => {
     const option = document.createElement('option');
-    option.value = model.name;
-    option.textContent = model.name;
+    option.value = `ollama:${model.name}`;
+    option.textContent = `Ollama: ${model.name}`;
     modelSelect.appendChild(option);
   });
 
-  if (models.length == 1) {
-    document.getElementById('result').innerHTML = 'No model not found';
+  // Fetch models from LM Studio
+  const lmStudioServer = await getLMStudioServer();
+  const lmStudioModels = await fetchLMStudioModels(lmStudioServer);
+
+  // Add LM Studio models with prefix
+  lmStudioModels.forEach((model) => {
+    const option = document.createElement('option');
+    option.value = `lmstudio:${model.name}`;
+    option.textContent = `LM Studio: ${model.name}`;
+    modelSelect.appendChild(option);
+  });
+
+  // Check if any models were found
+  if (ollamaModels.length === 0 && lmStudioModels.length === 0) {
+    document.getElementById('result').innerHTML = 'No models found';
   }
 
   // Set the current model using the stored value
-  const currentModel = await getOllamaModel();
+  const currentModel = await getSelectedModel();
   console.log('currentModel: ', currentModel);
-  modelSelect.value = currentModel ? currentModel : models[0].name;
+
+  // Try to set the selected model
+  if (currentModel && currentModel !== NO_MODEL_SELECTION) {
+    // Check if the model exists in the dropdown
+    const modelExists = Array.from(modelSelect.options)
+      .some(option => option.value === currentModel);
+    if (modelExists) {
+      modelSelect.value = currentModel;
+    } else if (ollamaModels.length > 0) {
+      // Default to first Ollama model if stored model not found
+      modelSelect.value = `ollama:${ollamaModels[0].name}`;
+    } else if (lmStudioModels.length > 0) {
+      // Or first LM Studio model if no Ollama models
+      modelSelect.value = `lmstudio:${lmStudioModels[0].name}`;
+    }
+  }
 }
 
 function getCodeReviewFromCacheOrLLM(diffPath, context, title) {
-  const selectedModel = document.getElementById('ollama_model').value;
+  const selectedModel = document.getElementById('model_name').value;
 
   // If no model is selected, show an message and return.
   if (selectedModel == NO_MODEL_SELECTION) {
@@ -478,13 +639,13 @@ async function run() {
   };
   updateCopyButtonState();
 
-  // Hanlde model switches
+  // Handle model switches
   document
-    .getElementById('ollama_model')
+    .getElementById('model_name')
     .addEventListener('change', (event) => {
       getCodeReviewFromCacheOrLLM(diffPath, context, title);
-      // Update the cached model so that it's used for the future run of the extension
-      chrome.storage.sync.set({ ollama_model: event.target.value });
+      // Update the cached model so that it's used for the future run of the extension  
+      chrome.storage.sync.set({ selected_model: event.target.value });
     });
 
   getCodeReviewFromCacheOrLLM(diffPath, context, title);
