@@ -451,6 +451,10 @@ async function populateModelDropdown() {
   
   // Add Ollama models with prefix
   ollamaModels.forEach((model) => {
+    // Skip models containing 'embed' in their name
+    if (model.name.toLowerCase().includes('embed')) {
+      return;
+    }
     const option = document.createElement('option');
     option.value = `ollama:${model.name}`;
     option.textContent = `Ollama: ${model.name}`;
@@ -463,6 +467,10 @@ async function populateModelDropdown() {
 
   // Add LM Studio models with prefix
   lmStudioModels.forEach((model) => {
+    // Skip models containing 'embed' in their name
+    if (model.name.toLowerCase().includes('embed')) {
+      return;
+    }
     const option = document.createElement('option');
     option.value = `lmstudio:${model.name}`;
     option.textContent = `LM Studio: ${model.name}`;
