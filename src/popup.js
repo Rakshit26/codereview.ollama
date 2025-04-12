@@ -6,6 +6,9 @@ import { parse } from 'node-html-parser';
 
 var parsediff = require('parse-diff');
 
+// Define constant for model selection option
+const NO_MODEL_SELECTION = 'No model selection';
+
 const spinner = `
         <svg aria-hidden="true" class="w-4 h-4 text-gray-200 animate-spin dark:text-slate-200 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
@@ -23,7 +26,7 @@ const xcircle = `
         </svg>
 `;
 
-function inProgress(ongoing, failed = false, rerun = true) {
+function updateUIStatus(ongoing, failed = false, rerun = true) {
   if (ongoing) {
     document.getElementById('status-icon').innerHTML = spinner;
     document.getElementById('rerun-btn').classList.add('invisible');
@@ -36,6 +39,9 @@ function inProgress(ongoing, failed = false, rerun = true) {
     if (rerun) {
       document.getElementById('rerun-btn').classList.remove('invisible');
     }
+    else if( document.getElementById("ollama_model").value == NO_MODEL_SELECTION) {
+      document.getElementById('rerun-btn').classList.add('invisible');
+    }
   }
 }
 
@@ -45,7 +51,7 @@ async function getOllamaModel() {
   });
   console.log(options);
   if (!options || !options['ollama_model']) {
-    return '';
+    return NO_MODEL_SELECTION;
   }
   return options['ollama_model'];
 }
@@ -155,7 +161,7 @@ async function getSelectedGuidelines() {
 // In the reviewPR function, replace the existing guidelines with:
 async function reviewPR(diffPath, context, title) {
   console.log('reviewPR', diffPath, context, title);
-  inProgress(true);
+  updateUIStatus(true);
   document.getElementById('result').innerHTML = '';
 
   const selectedModel = document.getElementById('ollama_model').value;
@@ -246,7 +252,7 @@ async function reviewPR(diffPath, context, title) {
     () => {
       const result = document.getElementById('result').innerHTML;
       saveResult(diffPath, selectedModel, result);
-      inProgress(false);
+      updateUIStatus(false);
     }
   );
 }
@@ -303,6 +309,14 @@ async function populateModelDropdown() {
   const models = await fetchOllamaModels(server);
 
   modelSelect.innerHTML = '';
+
+  // Add special "No model selection" option
+  const noModelOption = document.createElement('option');
+  noModelOption.value = NO_MODEL_SELECTION;
+  noModelOption.textContent = NO_MODEL_SELECTION;
+  modelSelect.appendChild(noModelOption);
+
+  // Add the rest of the models
   models.forEach((model) => {
     const option = document.createElement('option');
     option.value = model.name;
@@ -310,25 +324,34 @@ async function populateModelDropdown() {
     modelSelect.appendChild(option);
   });
 
-  if (models.length > 0) {
-    // Set the current model using the stored value
-    const currentModel = await getOllamaModel();
-    console.log('currentModel: ', currentModel);
-    modelSelect.value = currentModel ? currentModel : models[0].name;
-    return true;
-  } else {
-    document.getElementById('result').innerHTML = 'Ollama model not found';
-    return false;
+  if (models.length == 1) {
+    document.getElementById('result').innerHTML = 'No model not found';
   }
+
+  // Set the current model using the stored value
+  const currentModel = await getOllamaModel();
+  console.log('currentModel: ', currentModel);
+  modelSelect.value = currentModel ? currentModel : models[0].name;
 }
 
 function getCodeReviewFromCacheOrLLM(diffPath, context, title) {
   const selectedModel = document.getElementById('ollama_model').value;
+
+  // If no model is selected, show an message and return.
+  if (selectedModel == NO_MODEL_SELECTION) {
+    document.getElementById('result').innerHTML =
+      'No model selected. Please select a model in the dropdown, or copy the'
+      + ' generated prompt and paste in other AI chat apps.';
+    updateUIStatus(false/*not ongoing*/, false/*not a failure*/,
+      false/*hide rerun button*/);
+    return;
+  }
+
   const storageKey = getStorageKey(diffPath, selectedModel);
   chrome.storage.session.get([storageKey]).then(async (result) => {
     if (result[storageKey]) {
       document.getElementById('result').innerHTML = result[storageKey];
-      inProgress(false);
+      updateUIStatus(false);
     } else {
       reviewPR(diffPath, context, title);
     }
@@ -341,11 +364,7 @@ async function run() {
   let prUrl = document.getElementById('pr-url');
   prUrl.textContent = tab.url;
 
-  const success = await populateModelDropdown();
-
-  if (!success) {
-    return;
-  }
+  await populateModelDropdown();
 
   let diffPath;
   let provider = '';
@@ -429,13 +448,13 @@ async function run() {
 
   if (error != null) {
     document.getElementById('result').innerHTML = error;
-    inProgress(false, true, false);
+    updateUIStatus(false, true, false);
     await new Promise((r) => setTimeout(r, 4000));
     window.close();
     return; // not a pr
   }
 
-  inProgress(true);
+  updateUIStatus(true);
 
   // Handle rerun button. Ingore caching and just run the LLM query again
   document.getElementById('rerun-btn').onclick = () => {
