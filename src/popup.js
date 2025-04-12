@@ -1,6 +1,7 @@
 'use strict';
 
 import './styles.css';
+let messageForCopy = '';
 import { parse } from 'node-html-parser';
 
 var parsediff = require('parse-diff');
@@ -84,17 +85,11 @@ async function callChatGPT(messages, callback, onDone) {
   }
 
   console.log('ollamaMessages', ollamaMessages);
-
-  // Provide an alternative starting prompt
-  var messageForCopy = `Based on the following information, please provide an improved title and description for the code change,'
-    + 'and perform a thorough code review of the code changes.`;
   messages.forEach((message) => {
-    if (messages.indexOf(message) !== 0) {
       messageForCopy += `\n${message}`;
-    }
   });
-  console.log(messageForCopy);
-
+  console.log('messageForCopy', messageForCopy);
+  
   try {
     const model = document.getElementById('ollama_model').value;
     const ollamaServer = await getOllamaServer();
@@ -446,6 +441,23 @@ async function run() {
   document.getElementById('rerun-btn').onclick = () => {
     reviewPR(diffPath, context, title);
   };
+
+  // Handle copy prompt button
+  const copyPromptBtn = document.getElementById('copy-prompt-btn');
+  copyPromptBtn.onclick = async () => {
+    if (!messageForCopy) return;
+    try {
+      await navigator.clipboard.writeText(messageForCopy);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  // Update copy button state based on messageForCopy
+  const updateCopyButtonState = () => {
+    copyPromptBtn.classList.toggle('disabled', !messageForCopy);
+  };
+  updateCopyButtonState();
 
   // Hanlde model switches
   document
