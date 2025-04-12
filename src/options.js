@@ -154,11 +154,40 @@ function setupGuidelinesEventListeners() {
   });
 }
 
+// Setup tooltip functionality
+function setupTooltip() {
+  const infoIcon = document.getElementById('info-icon');
+  const tooltip = document.getElementById('tooltip');
+
+  if (infoIcon && tooltip) {
+    // Toggle tooltip on click
+    infoIcon.addEventListener('click', function(e) {
+      e.stopPropagation();
+
+      if (tooltip.style.display === 'none') {
+        // Position the tooltip near the icon
+        const rect = infoIcon.getBoundingClientRect();
+        tooltip.style.top = (rect.bottom + 5) + 'px';
+        tooltip.style.left = rect.left + 'px';
+        tooltip.style.display = 'block';
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+
+    // Hide tooltip when clicking elsewhere
+    document.addEventListener('click', function() {
+      tooltip.style.display = 'none';
+    });
+  }
+}
+
 // Add this to your existing DOMContentLoaded event handler
 document.addEventListener('DOMContentLoaded', async () => {
   await loadGuidelines();
   await restoreOptions();
   setupGuidelinesEventListeners();
+  setupTooltip();
   document.getElementById('status').hidden = true;
 });
 document.getElementById('save').addEventListener('click', saveOptions);
