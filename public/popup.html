@@ -12,11 +12,19 @@
       <div class="flex flex-col font-mono space-y-2">
         <div class="flex flex-row items-center">
           <div class="text-xl flex-grow">codereview.ollama</div>
-          <div
-            id="rerun-btn"
-            class="invisible text-lg border border-slate-900 hover:bg-slate-200 cursor-pointer px-2 rounded-md"
-          >
-            run again
+          <div class="flex flex-row space-x-2">
+            <div
+              id="copy-prompt-btn"
+              class="text-lg border border-slate-900 hover:bg-slate-200 cursor-pointer px-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            >
+              copy prompt
+            </div>
+            <div
+              id="rerun-btn"
+              class="invisible text-lg border border-slate-900 hover:bg-slate-200 cursor-pointer px-2 rounded-md"
+            >
+              run again
+            </div>
           </div>
         </div>
 
@@ -31,13 +39,13 @@
       </div>
       <hr />
       <div class="flex flex-row items-center space-x-2">
-        <label for="ollama_model" class="text-sm">Model:</label>
+        <label for="model_name" class="text-sm">Model:</label>
         <select
-          id="ollama_model"
+          id="model_name"
           class="text-sm border border-slate-300 rounded-md"
         ></select>
       </div>
-      <div class="my-4">
+      <div>
         <div id="result" class="flex flex-col space-y-2"></div>
       </div>
 
