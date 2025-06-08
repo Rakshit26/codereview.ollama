@@ -152,6 +152,9 @@ async function callLLM(messages, callback, onDone) {
         body: JSON.stringify({
           model: modelName,
           messages: chatMessages,
+          // When using mlx_lm.server, the default max_tokens is too short.
+          // Increase it to 16384 to handle longer responses.
+          max_tokens: 16384,
           stream: true,
         }),
       });
@@ -269,7 +272,6 @@ async function reviewPR(diffPath, context, title) {
       The description was provided in a markdown format.
       ${context}`);
   }
-  promptArray.push(`  You are provided with the code changes (diffs) in a unidiff format.`);
 
   // Remove binary files as those are not useful for ChatGPT to provide a review for.
   // TODO: Implement parse-diff library so that we can remove large lock files or binaries natively.
@@ -430,7 +432,7 @@ async function getMaxProcessingLength(server, modelValue) {
     document.getElementById('result').innerHTML =
       'Error fetching context length:' + error;
   }
-  return 4096 * 4 - 1000; // Assuming default 4096 tokens
+  return 16384 * 4 - 1000; // Assuming default context size is 16k tokens
 }
 
 async function populateModelDropdown() {
@@ -560,6 +562,10 @@ async function run() {
   }
 
   if (provider === 'GitHub' && tokens[5] === 'pull') {
+
+    const matchTitle = title.match(/^(.*?)\s+by\s+.+?\s+·\s+Pull Request/);
+    title = matchTitle ? matchTitle[1] : title;
+
     // The path towards the patch file of this change
     diffPath = `https://patch-diff.githubusercontent.com/raw/${tokens[3]}/${tokens[4]}/pull/${tokens[6]}.diff`;
     // The description of the author of the change
@@ -587,6 +593,9 @@ async function run() {
     const strippedUrl = match
       ? tab.url.slice(0, match.index + match[0].length)
       : tab.url;
+
+    const matchTitle = title.match(/^(.*)\s+\(!\d+\)\s+·\s+/);
+    title = matchTitle ? matchTitle[1] : title;
 
     // The path towards the patch file of this change
     diffPath = strippedUrl + '.diff';
@@ -624,6 +633,8 @@ async function run() {
   }
 
   updateUIStatus(true);
+
+  title = '"' + title + '"';
 
   // Handle rerun button. Ingore caching and just run the LLM query again
   document.getElementById('rerun-btn').onclick = () => {
