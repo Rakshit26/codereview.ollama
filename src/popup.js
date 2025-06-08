@@ -263,14 +263,19 @@ async function reviewPR(diffPath, context, title) {
 
   const guidelines = await getSelectedGuidelines();
   promptArray.push(`
-    ${guidelines.content}
+Guidelines and purposes:
+${guidelines.content}
+`);
 
-    You are provided with the code changes (diffs) in a unidiff format.`);
-  promptArray.push(`The change has the following title: ${title}`);
+  promptArray.push(`The code change has the following title: ${title}`);
   if(context) {
     promptArray.push(`A description was given to help you assist in understand why these changes were made.
-      The description was provided in a markdown format.
-      ${context}`);
+The description was provided in a markdown format.
+\`\`\`
+${context}
+\`\`\`
+You are provided with the code changes (diffs) in a unidiff format.
+`);
   }
 
   // Remove binary files as those are not useful for ChatGPT to provide a review for.
