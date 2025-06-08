@@ -152,9 +152,6 @@ async function callLLM(messages, callback, onDone) {
         body: JSON.stringify({
           model: modelName,
           messages: chatMessages,
-          // When using mlx_lm.server, the default max_tokens is too short.
-          // Increase it to 16384 to handle longer responses.
-          max_tokens: 16384,
           stream: true,
         }),
       });
@@ -333,8 +330,22 @@ You are provided with the code changes (diffs) in a unidiff format.
   callLLM(
     promptArray,
     (answer) => {
+      // Only process the answer if it starts with <think> tags
+      let processedAnswer = answer;
+      if (answer.startsWith('<think>')) {
+        processedAnswer = answer.replace(/<think>(.*?)<\/think>/gs, (match, thinkContent) => {
+          // Create a collapsible UI for the think content with HTML formatting
+          return `
+<details class="think-section bg-slate-100 p-2 rounded-md my-2">
+  <summary class="cursor-pointer font-medium text-slate-700 hover:text-slate-900">Thinking process</summary>
+  <div class="mt-2 text-slate-600">${converter.makeHtml(thinkContent)}</div>
+</details>
+`;
+        });
+      }
+
       document.getElementById('result').innerHTML = converter.makeHtml(
-        answer + ' \n\n' + warning
+        processedAnswer + ' \n\n' + warning
       );
     },
     () => {
