@@ -5,10 +5,31 @@ const saveOptions = () => {
   const ollama_server = document.getElementById('ollama_server').value;
   const lmstudio_server = document.getElementById('lmstudio_server').value;
 
+  // Get generation parameters
+  const temperature_enabled = document.getElementById('temperature_enabled').checked;
+  const temperature = document.getElementById('temperature').value;
+  const top_p_enabled = document.getElementById('top_p_enabled').checked;
+  const top_p = document.getElementById('top_p').value;
+  // min_p parameter removed as it's not supported by LM Studio
+  const top_k_enabled = document.getElementById('top_k_enabled').checked;
+  const top_k = document.getElementById('top_k').value;
+  const max_tokens_enabled = document.getElementById('max_tokens_enabled').checked;
+  const max_tokens = document.getElementById('max_tokens').value;
+
   chrome.storage.sync.set(
     {
       ollama_server: ollama_server,
       lmstudio_server: lmstudio_server,
+      // Save generation parameters
+      temperature_enabled: temperature_enabled,
+      temperature: temperature,
+      top_p_enabled: top_p_enabled,
+      top_p: top_p,
+      // min_p parameter removed as it's not supported by LM Studio
+      top_k_enabled: top_k_enabled,
+      top_k: top_k,
+      max_tokens_enabled: max_tokens_enabled,
+      max_tokens: max_tokens
     },
     () => {
       // Update status to let user know options were saved.
@@ -28,11 +49,40 @@ const restoreOptions = () => {
     {
       ollama_server: 'http://localhost:11434',
       lmstudio_server: 'http://localhost:1234',
+      // Default values for generation parameters
+      temperature_enabled: false,
+      temperature: 0.7,
+      top_p_enabled: false,
+      top_p: 0.9,
+      // min_p parameter removed as it's not supported by LM Studio
+      top_k_enabled: false,
+      top_k: 40,
+      max_tokens_enabled: false,
+      max_tokens: 2048
     },
     (items) => {
       console.log(items);
       document.getElementById('ollama_server').value = items.ollama_server;
       document.getElementById('lmstudio_server').value = items.lmstudio_server;
+
+      // Restore generation parameters
+      document.getElementById('temperature_enabled').checked = items.temperature_enabled;
+      document.getElementById('temperature').value = items.temperature;
+      document.getElementById('temperature').disabled = !items.temperature_enabled;
+
+      document.getElementById('top_p_enabled').checked = items.top_p_enabled;
+      document.getElementById('top_p').value = items.top_p;
+      document.getElementById('top_p').disabled = !items.top_p_enabled;
+
+      // min_p parameter removed as it's not supported by LM Studio
+
+      document.getElementById('top_k_enabled').checked = items.top_k_enabled;
+      document.getElementById('top_k').value = items.top_k;
+      document.getElementById('top_k').disabled = !items.top_k_enabled;
+
+      document.getElementById('max_tokens_enabled').checked = items.max_tokens_enabled;
+      document.getElementById('max_tokens').value = items.max_tokens;
+      document.getElementById('max_tokens').disabled = !items.max_tokens_enabled;
     }
   );
 };
@@ -182,11 +232,26 @@ function setupTooltip() {
   }
 }
 
+// Setup event listeners for generation parameters checkboxes
+function setupGenerationParametersEventListeners() {
+  const parameterIds = ['temperature', 'top_p', 'top_k', 'max_tokens'];
+
+  parameterIds.forEach(id => {
+    const checkbox = document.getElementById(`${id}_enabled`);
+    const input = document.getElementById(id);
+
+    checkbox.addEventListener('change', () => {
+      input.disabled = !checkbox.checked;
+    });
+  });
+}
+
 // Add this to your existing DOMContentLoaded event handler
 document.addEventListener('DOMContentLoaded', async () => {
   await loadGuidelines();
   await restoreOptions();
   setupGuidelinesEventListeners();
+  setupGenerationParametersEventListeners();
   setupTooltip();
   document.getElementById('status').hidden = true;
 });
