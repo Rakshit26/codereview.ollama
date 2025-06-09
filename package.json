@@ -1,6 +1,6 @@
 {
   "name": "codereview.ollama",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Reviews pull requests from github or merge requests from gitlab using Ollama.",
   "private": true,
   "scripts": {

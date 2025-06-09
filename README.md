@@ -28,6 +28,9 @@ Here's an example output for [this](https://github.com/limingchina/codereview.ol
 ![example screenshot](https://raw.githubusercontent.com/limingchina/codereview.ollama/main/docs/codereview_ollama_screenshot_1.png)
 
 ## What's New
+2025 June 9th:
+  - Add options to override LLM sampling parameters: temperature, top_p, top_k, max_tokens.
+
 2025 April 12th:
   - Add support for LM Studio
   - Add a button in the popup page to copy the prompt messsage so that it can be pasted to another AI chat app.
@@ -45,6 +48,20 @@ Here's an example output for [this](https://github.com/limingchina/codereview.ol
 - Install [LM Studio](https://lmstudio.ai/)
 - Launch LM Studio and download some models.
 - Switch to "Developer" mode in the status bar. Click "Developer" icon on the left side bar. Then click on "Settings" button and switch on the "Enable CORS" option.
+
+### Server and LLM Parameter Configurations
+The server addresses for Ollama and LM Studio can be specified in the options page. The default values are as follows:
+- Ollama: `http://localhost:11434`
+- LM Studio: `http://localhost:1234`
+Since for LM studio, the request is using OpenAI-compatible API, the other OpenAI-compatible backends would also work, for example, the [mlx_lm server](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md). Note that the mlx_lm server's default max_tokens parameter is 512, which is too short. One needs to override that in the "Generation Parameters" in the options page.
+
+Apart from "max_tokens", one can also customize other LLM sampling parameters in the "Generation Parameters" in the options page. "temperature" and "top_p" are the most important parameters. "temperature" controls the randomness of the generated text, while "top_p" controls the diversity of the generated text. "top_k" controls the number of tokens to consider for sampling. "max_tokens" controls the maximum number of tokens to generate. "min_p" is not supported since it is not supported by OpenAI API and LM Studio API. 
+
+### Customize Code Review Guidelines
+Sometimes one might want to customize the code review guidelines instead of using the builtin one. For example, you just want the code review to concentrate on finding typos or naming conventions. You can add such guidelines by following these steps:
+- Go to the "Code Review Guidelines" section of the options page and click on the "Add" button.
+- Enter the guideline's name and content.
+- Click the "Save" button to save the guideline.
 
 **NB:** Running the review multiple times often produces different feedback, so if you are dealing with a larger PR, it might be a good idea to do that to get the most out of it.
 

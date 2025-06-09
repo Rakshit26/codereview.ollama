@@ -122,38 +122,93 @@ async function callLLM(messages, callback, onDone) {
     const modelValue = document.getElementById('model_name').value;
     let modelType, modelName, server, response;
 
+    // Get generation parameters from storage
+    const generationParams = await new Promise((resolve) => {
+      chrome.storage.sync.get([
+        'temperature_enabled', 'temperature',
+        'top_p_enabled', 'top_p',
+        'top_k_enabled', 'top_k',
+        'max_tokens_enabled', 'max_tokens'
+      ], resolve);
+    });
+
+    console.log('Generation parameters:', generationParams);
+
     // Parse the model value to determine which service to use
     if (modelValue.startsWith('ollama:')) {
       modelType = 'ollama';
       modelName = modelValue.substring(7); // Remove 'ollama:' prefix
       server = await getOllamaServer();
       console.log('Using Ollama model:', modelName);
+
+      // Build request body with optional generation parameters
+      const requestBody = {
+        model: modelName,
+        messages: chatMessages,
+        stream: true,
+        options: {}
+      };
+
+      // Add enabled generation parameters to options object for Ollama
+      if (generationParams.temperature_enabled) {
+        requestBody.options.temperature = parseFloat(generationParams.temperature);
+      }
+      if (generationParams.top_p_enabled) {
+        requestBody.options.top_p = parseFloat(generationParams.top_p);
+      }
+      // min_p is supported by Ollama. However, it is not supported by OpenAI and LMStudio
+      // in order to maintain consistency, we will not use min_p.
+      if (generationParams.top_k_enabled) {
+        requestBody.options.top_k = parseInt(generationParams.top_k);
+      }
+      if (generationParams.max_tokens_enabled) {
+        requestBody.options.max_tokens = parseInt(generationParams.max_tokens);
+      }
+
       response = await fetch(`${server}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: modelName,
-          messages: chatMessages,
-          stream: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
     } else if (modelValue.startsWith('lmstudio:')) {
       modelType = 'lmstudio';
       modelName = modelValue.substring(9); // Remove 'lmstudio:' prefix
       server = await getLMStudioServer();
       console.log('Using LM Studio model:', modelName);
+
+      // Build request body with optional generation parameters
+      const requestBody = {
+        model: modelName,
+        messages: chatMessages,
+        stream: true
+      };
+
+      // Add enabled generation parameters
+      if (generationParams.temperature_enabled) {
+        requestBody.temperature = parseFloat(generationParams.temperature);
+      }
+      if (generationParams.top_p_enabled) {
+        requestBody.top_p = parseFloat(generationParams.top_p);
+      }
+      // Generation parameters for LM Studio
+      if (generationParams.top_k_enabled) {
+        requestBody.top_k = parseInt(generationParams.top_k);
+      }
+      if (generationParams.max_tokens_enabled) {
+        requestBody.max_tokens = parseInt(generationParams.max_tokens);
+        // "max_tokens" is deprecated in OpenAI API. Add "max_completion_tokens"
+        // for future-proof
+        requestBody.max_completion_tokens = requestBody.max_tokens;
+      }
+
       response = await fetch(`${server}/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: modelName,
-          messages: chatMessages,
-          stream: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
     } else {
       throw new Error('Unknown model type: ' + modelValue);
@@ -184,6 +239,10 @@ async function callLLM(messages, callback, onDone) {
                 const jsonStartIndex = line.indexOf('{');
                 if (jsonStartIndex > 0) {
                   jsonStr = line.substring(jsonStartIndex);
+                }
+                else
+                {
+                  return;
                 }
               }
               const json = JSON.parse(jsonStr);
