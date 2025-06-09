@@ -260,16 +260,20 @@ async function reviewPR(diffPath, context, title) {
 
   const guidelines = await getSelectedGuidelines();
   promptArray.push(`
-    ${guidelines.content}
+Guidelines and purposes:
+${guidelines.content}
+`);
 
-    You are provided with the code changes (diffs) in a unidiff format.`);
-  promptArray.push(`The change has the following title: ${title}`);
+  promptArray.push(`The code change has the following title: ${title}`);
   if(context) {
     promptArray.push(`A description was given to help you assist in understand why these changes were made.
-      The description was provided in a markdown format.
-      ${context}`);
+The description was provided in a markdown format.
+\`\`\`
+${context}
+\`\`\`
+You are provided with the code changes (diffs) in a unidiff format.
+`);
   }
-  promptArray.push(`  You are provided with the code changes (diffs) in a unidiff format.`);
 
   // Remove binary files as those are not useful for ChatGPT to provide a review for.
   // TODO: Implement parse-diff library so that we can remove large lock files or binaries natively.
@@ -326,8 +330,22 @@ async function reviewPR(diffPath, context, title) {
   callLLM(
     promptArray,
     (answer) => {
+      // Only process the answer if it starts with <think> tags
+      let processedAnswer = answer;
+      if (answer.startsWith('<think>')) {
+        processedAnswer = answer.replace(/<think>(.*?)<\/think>/gs, (match, thinkContent) => {
+          // Create a collapsible UI for the think content with HTML formatting
+          return `
+<details class="think-section bg-slate-100 p-2 rounded-md my-2">
+  <summary class="cursor-pointer font-medium text-slate-700 hover:text-slate-900">Thinking process</summary>
+  <div class="mt-2 text-slate-600">${converter.makeHtml(thinkContent)}</div>
+</details>
+`;
+        });
+      }
+
       document.getElementById('result').innerHTML = converter.makeHtml(
-        answer + ' \n\n' + warning
+        processedAnswer + ' \n\n' + warning
       );
     },
     () => {
@@ -430,7 +448,7 @@ async function getMaxProcessingLength(server, modelValue) {
     document.getElementById('result').innerHTML =
       'Error fetching context length:' + error;
   }
-  return 4096 * 4 - 1000; // Assuming default 4096 tokens
+  return 16384 * 4 - 1000; // Assuming default context size is 16k tokens
 }
 
 async function populateModelDropdown() {
@@ -560,6 +578,10 @@ async function run() {
   }
 
   if (provider === 'GitHub' && tokens[5] === 'pull') {
+
+    const matchTitle = title.match(/^(.*?)\s+by\s+.+?\s+·\s+Pull Request/);
+    title = matchTitle ? matchTitle[1] : title;
+
     // The path towards the patch file of this change
     diffPath = `https://patch-diff.githubusercontent.com/raw/${tokens[3]}/${tokens[4]}/pull/${tokens[6]}.diff`;
     // The description of the author of the change
@@ -587,6 +609,9 @@ async function run() {
     const strippedUrl = match
       ? tab.url.slice(0, match.index + match[0].length)
       : tab.url;
+
+    const matchTitle = title.match(/^(.*)\s+\(!\d+\)\s+·\s+/);
+    title = matchTitle ? matchTitle[1] : title;
 
     // The path towards the patch file of this change
     diffPath = strippedUrl + '.diff';
@@ -624,6 +649,8 @@ async function run() {
   }
 
   updateUIStatus(true);
+
+  title = '"' + title + '"';
 
   // Handle rerun button. Ingore caching and just run the LLM query again
   document.getElementById('rerun-btn').onclick = () => {
